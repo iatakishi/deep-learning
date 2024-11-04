@@ -1,0 +1,96 @@
+# Importing necessary libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# TensorFlow and Keras for building CNN
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+
+# Load and prepare the dataset
+from tensorflow.keras.datasets import cifar10
+
+# Load the CIFAR-10 dataset
+(X_train, y_train), (X_test, y_test) = cifar10.load_data()
+
+# Normalize pixel values between 0 and 1
+X_train = X_train.astype('float32') / 255
+X_test = X_test.astype('float32') / 255
+
+# One-hot encode the labels
+y_train = keras.utils.to_categorical(y_train, 10)
+y_test = keras.utils.to_categorical(y_test, 10)
+
+# Build the CNN model
+model = keras.Sequential([
+    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)),
+    layers.MaxPooling2D(pool_size=(2, 2)),
+    
+    layers.Conv2D(64, (3, 3), activation='relu'),
+    layers.MaxPooling2D(pool_size=(2, 2)),
+    
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.MaxPooling2D(pool_size=(2, 2)),
+    
+    layers.Flatten(),
+    layers.Dense(128, activation='relu'),
+    layers.Dropout(0.5),
+    layers.Dense(10, activation='softmax')
+])
+
+# Compile the model
+model.compile(optimizer='adam', 
+              loss='categorical_crossentropy', 
+              metrics=['accuracy'])
+
+# Display model architecture
+model.summary()
+
+# Train the model
+history = model.fit(X_train, y_train, 
+                    batch_size=64, 
+                    epochs=20, 
+                    validation_split=0.2)
+
+# Evaluate the model
+test_loss, test_acc = model.evaluate(X_test, y_test, verbose=2)
+print(f'\nTest accuracy: {test_acc:.4f}')
+
+# Plot training & validation accuracy and loss values
+plt.figure(figsize=(12, 4))
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.ylabel('Accuracy')
+plt.xlabel('Epoch')
+plt.legend(loc='lower right')
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Model Loss')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(loc='upper right')
+
+plt.tight_layout()
+plt.show()
+
+# Make predictions on test set
+predictions = model.predict(X_test)
+
+# Function to visualize some predictions
+def plot_predictions(images, true_labels, predictions):
+    plt.figure(figsize=(10, 10))
+    for i in range(9):
+        plt.subplot(3, 3, i + 1)
+        plt.imshow(images[i])
+        plt.title(f'True: {np.argmax(true_labels[i])}, Pred: {np.argmax(predictions[i])}')
+        plt.axis('off')
+    plt.show()
+
+# Visualizing predictions
+plot_predictions(X_test, y_test, predictions)
