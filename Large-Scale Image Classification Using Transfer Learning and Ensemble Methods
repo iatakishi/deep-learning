@@ -1,0 +1,107 @@
+# Import necessary libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from keras.applications import VGG16, InceptionV3, ResNet50
+from keras.preprocessing.image import ImageDataGenerator
+from keras.models import Model
+from keras.layers import Dense, GlobalAveragePooling2D
+from keras.optimizers import Adam
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+import seaborn as sns
+
+# Load dataset
+# Assume dataset is structured in folders for each class
+data_dir = 'path_to_your_dataset'  # Adjust the path to your dataset
+
+# Image Data Generator for data augmentation
+train_datagen = ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=40,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True,
+    fill_mode='nearest',
+    validation_split=0.2  # Reserve 20% for validation
+)
+
+# Load training and validation data
+train_generator = train_datagen.flow_from_directory(
+    data_dir,
+    target_size=(224, 224),
+    batch_size=32,
+    class_mode='categorical',
+    subset='training'
+)
+
+validation_generator = train_datagen.flow_from_directory(
+    data_dir,
+    target_size=(224, 224),
+    batch_size=32,
+    class_mode='categorical',
+    subset='validation'
+)
+
+# Define the models
+def create_model(base_model):
+    # Freeze the base model
+    for layer in base_model.layers:
+        layer.trainable = False
+
+    # Create a new model on top
+    x = base_model.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dense(256, activation='relu')(x)
+    predictions = Dense(train_generator.num_classes, activation='softmax')(x)
+
+    model = Model(inputs=base_model.input, outputs=predictions)
+    return model
+
+# Initialize the models
+base_models = [VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3)),
+               InceptionV3(weights='imagenet', include_top=False, input_shape=(224, 224, 3)),
+               ResNet50(weights='imagenet', include_top=False, input_shape=(224, 224, 3))]
+
+models = [create_model(base_model) for base_model in base_models]
+
+# Compile models
+for model in models:
+    model.compile(optimizer=Adam(), loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Train the models and store their histories
+histories = []
+for model in models:
+    history = model.fit(train_generator, epochs=10, validation_data=validation_generator)
+    histories.append(history)
+
+# Ensemble predictions
+def ensemble_predict(models, data):
+    predictions = [model.predict(data) for model in models]
+    return np.mean(predictions, axis=0)
+
+# Evaluate ensemble model
+# Generate predictions on the validation set
+validation_steps = validation_generator.samples // validation_generator.batch_size
+val_predictions = ensemble_predict(models, validation_generator)
+
+# Get the class labels
+y_true = validation_generator.classes
+y_pred = np.argmax(val_predictions, axis=1)
+
+# Classification report and confusion matrix
+print(classification_report(y_true, y_pred, target_names=validation_generator.class_indices.keys()))
+
+confusion_mtx = confusion_matrix(y_true, y_pred)
+plt.figure(figsize=(10, 8))
+sns.heatmap(confusion_mtx, annot=True, fmt='d', cmap='Blues', xticklabels=validation_generator.class_indices.keys(), yticklabels=validation_generator.class_indices.keys())
+plt.ylabel('True label')
+plt.xlabel('Predicted label')
+plt.title('Confusion Matrix')
+plt.show()
+
+# Save models
+for i, model in enumerate(models):
+    model.save(f'ensemble_model_{i}.h5')
