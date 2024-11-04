@@ -1,0 +1,90 @@
+# Importing necessary libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Importing Natural Language Processing libraries
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import classification_report, confusion_matrix
+
+# Load the dataset
+# Using a sample dataset from Kaggle or any other source with sentiments
+# For the sake of this example, we will create a small dataset manually
+
+data = {
+    'text': [
+        "I love this product!",
+        "This is the worst experience I've ever had.",
+        "Absolutely fantastic! Highly recommend.",
+        "I'm not satisfied with this service.",
+        "Great value for money.",
+        "Terrible, I want a refund!",
+        "It works as expected, no complaints.",
+        "Awful! I will never buy this again.",
+        "Best purchase I've made!",
+        "It was okay, not the best."
+    ],
+    'sentiment': ['positive', 'negative', 'positive', 'negative', 'positive', 
+                  'negative', 'positive', 'negative', 'positive', 'neutral']
+}
+
+df = pd.DataFrame(data)
+
+# Visualize the dataset
+sns.countplot(x='sentiment', data=df)
+plt.title('Sentiment Distribution')
+plt.show()
+
+# Preprocessing the data
+X = df['text']
+y = df['sentiment']
+
+# Splitting the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Vectorizing the text data
+vectorizer = CountVectorizer()
+X_train_vectorized = vectorizer.fit_transform(X_train)
+X_test_vectorized = vectorizer.transform(X_test)
+
+# Initialize the model
+model = MultinomialNB()
+
+# Train the model
+model.fit(X_train_vectorized, y_train)
+
+# Predictions
+y_pred = model.predict(X_test_vectorized)
+
+# Evaluate the model
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+
+# Function to visualize predictions
+def plot_confusion_matrix(cm):
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=['Negative', 'Neutral', 'Positive'],
+                yticklabels=['Negative', 'Neutral', 'Positive'])
+    plt.ylabel('Actual')
+    plt.xlabel('Predicted')
+    plt.title('Confusion Matrix')
+    plt.show()
+
+# Plot the confusion matrix
+cm = confusion_matrix(y_test, y_pred)
+plot_confusion_matrix(cm)
+
+# Testing the model with a new sample
+new_samples = ["I am thrilled with the service!", "This was a bad choice."]
+new_samples_vectorized = vectorizer.transform(new_samples)
+predictions = model.predict(new_samples_vectorized)
+
+# Output the predictions
+for text, sentiment in zip(new_samples, predictions):
+    print(f'Text: "{text}" - Predicted Sentiment: {sentiment}')
